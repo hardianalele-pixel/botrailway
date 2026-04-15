@@ -22,9 +22,8 @@ const BRAND_NAME = process.env.BRAND_NAME || 'PanelSosial';
 const BOT_NAME = process.env.BOT_NAME || `${BRAND_NAME} CS`;
 const ADMIN_CONTACT = process.env.ADMIN_CONTACT || '-';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta';
-const GEMINI_TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || 'gemini-2.5-flash';
+const AI_ENDPOINT = process.env.AI_ENDPOINT || 'https://ai.hardianalele.workers.dev/chat';
+const AI_TOKEN = process.env.AI_TOKEN || '123123';
 
 let qrCodeString = null;
 let isConnected = false;
@@ -100,61 +99,6 @@ function buildTosText() {
   ].join('\n');
 }
 
-function getSystemPrompt() {
-  return `
-Kamu adalah customer service resmi, ramah, sopan, cepat, dan profesional dari ${BRAND_NAME}.
-
-Gaya bicara:
-- Pakai bahasa Indonesia yang natural, hangat, dan tidak kaku
-- Panggil pengguna dengan "kak"
-- Fokus pada inti jawaban
-- Jawaban singkat sampai menengah, idealnya 3 sampai 7 baris
-- Boleh pakai emoji secukupnya agar terasa ramah, jangan berlebihan
-- Jangan terdengar seperti robot atau seperti membaca pasal hukum mentah-mentah
-
-ATURAN WAJIB YANG TIDAK BOLEH DILANGGAR:
-1. ${BRAND_NAME} menyediakan jasa OTP / nomor virtual untuk menerima SMS OTP dari platform pihak ketiga.
-2. Tegaskan dengan jelas bahwa ${BRAND_NAME} *bukan jual akun*. Kami hanya menyediakan jasa OTP / nomor virtual.
-3. Kami bukan penyedia layanan telekomunikasi resmi dan tidak terafiliasi dengan operator seluler manapun.
-4. Jangan pernah menjanjikan OTP pasti masuk.
-5. Jangan pernah menjanjikan akun aman, lolos, tahan lama, anti banned, atau anti suspend.
-6. Jika OTP sudah diterima, transaksi dianggap selesai.
-7. Jika sudah melewati 20 menit sejak pembelian, layanan dianggap selesai.
-8. Refund hanya berlaku jika OTP tidak diterima sampai masa aktif nomor berakhir sesuai sistem.
-9. Salah beli layanan, salah pilih layanan, atau kesalahan penggunaan pengguna tidak termasuk refund.
-10. Banned, suspend, limit, pemblokiran, kehilangan akses akun, atau kendala dari platform pihak ketiga adalah tanggung jawab pengguna.
-11. Jika user bingung soal status OTP, sarankan cek riwayat order dan detail transaksi dulu.
-12. Jika user butuh bantuan lanjutan yang membutuhkan pengecekan manual, arahkan ke admin: ${ADMIN_CONTACT}
-13. Dilarang mengarahkan atau membenarkan penggunaan ilegal, termasuk penipuan, spam, pembuatan akun massal tanpa izin, penyalahgunaan identitas, atau aktivitas yang merugikan pihak lain.
-14. Jika user bertanya apakah kalian jual akun, jawab tegas tapi ramah bahwa kalian menyediakan jasa OTP, bukan jual akun.
-15. Jika user marah, tetap tenang, empatik, tidak defensif, tidak menyalahkan user, tapi tetap patuh pada aturan.
-16. Jika user Otp Tidak masuk persilahkan user untuk batalkan order nomor dan reorder nomor lagi
-17. Jika user tanya otp sudah masuk tapi ga bisa di gunakan bilang ke aturan bahwa kami jasa otp bukan jualan akun secara halus
-18. pada intinya ketika user bertanya tentang kendala aplikasi jawab aja kami jasa otp bukan jualan akun secara halus
-
-
-SUMBER ATURAN LAYANAN:
-- Dengan menggunakan layanan ${BRAND_NAME}, pengguna dianggap menyetujui ketentuan layanan.
-- ${BRAND_NAME} berhak mengubah ketentuan layanan sewaktu-waktu.
-- Nomor bersifat sementara dan dapat digunakan kembali setelah masa aktif berakhir.
-- Harga yang ditampilkan adalah harga final saat pembelian.
-- Setelah pembelian berhasil, pengguna wajib menunggu OTP masuk melalui notifikasi atau mengecek detail riwayat order.
-- Jika OTP tidak masuk sampai masa aktif nomor berakhir, saldo direfund otomatis sesuai sistem saat pengecekan SMS dilakukan.
-- Tombol batal akan mengirim pembatalan ke provider dan saldo dikembalikan jika pembatalan berhasil.
-- Data pengguna hanya digunakan untuk keperluan operasional layanan.
-- Kami menjaga privasi pengguna dan tidak menjual data pribadi, kecuali jika diwajibkan oleh hukum.
-
-FORMAT JAWABAN:
-- Selalu jawab sesuai konteks pertanyaan user
-- Jangan membuat informasi yang tidak disebutkan di atas
-- Jika tidak yakin atau butuh pengecekan manual, arahkan ke admin
-- Jika user hanya menyapa, balas ramah dan tawarkan bantuan
-- Jika user meminta menu, berikan arahan singkat dan ramah
-- Jangan menulis paragraf terlalu panjang
-- Jangan gunakan istilah hukum yang berat kecuali benar-benar perlu
-`;
-}
-
 function normalizeText(text = '') {
   return text
     .toLowerCase()
@@ -206,8 +150,16 @@ function detectQuickReply(text) {
 
   if (['menu', 'help', 'bantuan'].includes(normalized)) return STATIC_RESPONSES.menu;
   if (['admin', 'cs', 'kontak admin'].includes(normalized)) return STATIC_RESPONSES.admin;
-  if (['status', 'status bot', 'cek bot'].includes(normalized)) return typeof STATIC_RESPONSES.status === 'function' ? STATIC_RESPONSES.status() : STATIC_RESPONSES.status;
-  if (['tos', 'syarat', 'ketentuan', 'terms'].includes(normalized)) return typeof STATIC_RESPONSES.tos === 'function' ? STATIC_RESPONSES.tos() : STATIC_RESPONSES.tos;
+  if (['status', 'status bot', 'cek bot'].includes(normalized)) {
+    return typeof STATIC_RESPONSES.status === 'function'
+      ? STATIC_RESPONSES.status()
+      : STATIC_RESPONSES.status;
+  }
+  if (['tos', 'syarat', 'ketentuan', 'terms'].includes(normalized)) {
+    return typeof STATIC_RESPONSES.tos === 'function'
+      ? STATIC_RESPONSES.tos()
+      : STATIC_RESPONSES.tos;
+  }
 
   return null;
 }
@@ -224,62 +176,47 @@ function extractIncomingText(message = {}) {
   return '';
 }
 
-async function askGemini(jid, userText) {
-  if (!GEMINI_API_KEY) {
+function buildAiHistory(jid) {
+  const memory = getConversation(jid);
+  return memory.messages.map((item) => ({
+    role: item.role,
+    content: item.text
+  }));
+}
+
+async function askAI(jid, userText) {
+  if (!AI_ENDPOINT || !AI_TOKEN) {
     return `Maaf kak, fitur AI belum aktif. Silakan hubungi admin di ${ADMIN_CONTACT} ya 🙏`;
   }
 
-  const memory = getConversation(jid);
-  const contents = [
-    {
-      role: 'user',
-      parts: [{ text: getSystemPrompt() }]
-    }
-  ];
-
-  for (const item of memory.messages) {
-    contents.push({
-      role: item.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: item.text }]
-    });
-  }
-
-  contents.push({
-    role: 'user',
-    parts: [{ text: userText }]
-  });
-
-  const url = `${GEMINI_BASE_URL}/models/${GEMINI_TEXT_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-
   try {
+    const history = buildAiHistory(jid);
+
     const response = await axios.post(
-      url,
+      AI_ENDPOINT,
       {
-        contents,
-        generationConfig: {
-          temperature: 0.7,
-          topP: 0.9,
-          topK: 40,
-          maxOutputTokens: 1024
-        }
+        message: userText,
+        history
       },
       {
         timeout: 30000,
         headers: {
+          Authorization: `Bearer ${AI_TOKEN}`,
           'Content-Type': 'application/json'
         }
       }
     );
 
-    const text = response.data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join('\n').trim();
-    if (!text) {
+    const reply = String(response.data?.reply || '').trim();
+
+    if (!reply) {
       return `Maaf kak, saya belum bisa jawab itu sekarang. Silakan hubungi admin di ${ADMIN_CONTACT} ya 🙏`;
     }
 
-    return text;
+    return reply;
   } catch (error) {
     const detail = error.response?.data || error.message;
-    console.error('Gemini error:', detail);
+    console.error('AI endpoint error:', detail);
     return `Maaf kak, sistem sedang gangguan. Silakan coba lagi sebentar atau hubungi admin di ${ADMIN_CONTACT} ya 🙏`;
   }
 }
@@ -393,7 +330,7 @@ async function startBot() {
       const quickReply = detectQuickReply(messageText);
       if (quickReply) {
         await sock.sendMessage(jid, { text: quickReply });
-        if (normalized in { 'menu':1, 'help':1, 'bantuan':1 }) {
+        if (normalized in { menu: 1, help: 1, bantuan: 1 }) {
           await sendMainMenu(sock, jid);
         }
         console.log(`✅ Quick reply terkirim ke ${jid}`);
@@ -407,7 +344,7 @@ async function startBot() {
       }
 
       pushConversation(jid, 'user', messageText);
-      const reply = await askGemini(jid, messageText);
+      const reply = await askAI(jid, messageText);
       pushConversation(jid, 'assistant', reply);
 
       await sock.sendMessage(jid, { text: reply });
@@ -495,8 +432,8 @@ app.get('/health', (req, res) => {
     hasQr: !!qrCodeString,
     uptime: getUptime(),
     bot: BOT_NAME,
-    aiEnabled: !!GEMINI_API_KEY,
-    model: GEMINI_TEXT_MODEL
+    aiEnabled: !!AI_ENDPOINT && !!AI_TOKEN,
+    aiEndpoint: AI_ENDPOINT
   });
 });
 
@@ -519,7 +456,7 @@ app.get('/', (req, res) => {
           <div class="grid">
             <div class="card"><strong>Status</strong><br/>Online & siap menerima chat</div>
             <div class="card"><strong>Uptime</strong><br/>${getUptime()}</div>
-            <div class="card"><strong>Model AI</strong><br/>${GEMINI_TEXT_MODEL}</div>
+            <div class="card"><strong>AI Endpoint</strong><br/>${AI_ENDPOINT}</div>
             <div class="card"><strong>Admin</strong><br/>${ADMIN_CONTACT}</div>
           </div>
           <p class="muted" style="margin-top:18px;">Catatan: ${BRAND_NAME} menyediakan jasa OTP / nomor virtual, bukan jual akun.</p>
