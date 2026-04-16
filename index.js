@@ -437,6 +437,50 @@ app.get('/health', (req, res) => {
   });
 });
 
+app.get('/check', async (req,res)=>{
+  try{
+    const number = req.query.number;
+
+    if(!number){
+      return res.json({
+        status:false,
+        error:'number wajib'
+      });
+    }
+
+    if(!activeSocket || !isConnected){
+      return res.json({
+        status:false,
+        error:'WhatsApp belum terhubung'
+      });
+    }
+
+    const jid = number.replace(/\D/g,'') + '@s.whatsapp.net';
+
+    const result = await activeSocket.onWhatsApp(jid);
+
+    if(!result || result.length === 0){
+      return res.json({
+        status:true,
+        number,
+        exists:false
+      });
+    }
+
+    res.json({
+      status:true,
+      number,
+      exists: result[0].exists || false
+    });
+
+  }catch(e){
+    res.json({
+      status:false,
+      error:e.message
+    });
+  }
+});
+
 app.get('/', (req, res) => {
   if (isConnected) {
     return res.send(`
